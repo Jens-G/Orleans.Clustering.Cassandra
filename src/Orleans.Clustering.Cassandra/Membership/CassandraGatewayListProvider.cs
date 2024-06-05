@@ -100,7 +100,8 @@ namespace Orleans.Clustering.Cassandra.Membership
         private static Uri ConvertToGatewayUri(ISiloIntance gateway)
         {
             // ReSharper disable once PossibleInvalidOperationException
-            var address = SiloAddress.New(new IPEndPoint(IPAddress.Parse(gateway.Address), gateway.ProxyPort.Value), gateway.Generation);
+            var proxyPort = gateway.ProxyPort ?? 30000;
+            var address = SiloAddress.New(new IPEndPoint(IPAddress.Parse(gateway.Address), proxyPort), gateway.Generation);
             return address.ToGatewayUri();
         }
     }

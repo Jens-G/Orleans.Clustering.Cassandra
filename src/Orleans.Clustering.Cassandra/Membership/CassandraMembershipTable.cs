@@ -248,5 +248,56 @@ namespace Orleans.Clustering.Cassandra.Membership
 
             return new MembershipTableData(members, tableVersion);
         }
+
+        public async Task CleanupDefunctSiloEntries(DateTimeOffset beforeDate)
+        {
+            if (_logger.IsEnabled(LogLevel.Trace))
+                _logger.LogTrace("IMembershipTable.CleanupDefunctSiloEntries called with beforeDate {beforeDate} and clusterId {ClusterId}.", beforeDate, _clusterId);
+            try
+            {
+                // Caveat: We have to provide the entire PK at DELETE, otherwise an error about missing PK parts is raised
+                // PS: no filtering allowed at DELETE either :-(
+
+                // Status > 3
+                var entities = await _mapper.FetchAsync<SiloInstance>(
+                    Cql.New(
+                       $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.IAmAliveTime)} < ? AND Status > 3 ALLOW FILTERING",
+                       _clusterId,
+                       beforeDate)
+                   .WithOptions(x => x.SetConsistencyLevel(DefaultConsistencyLevel)));
+                await DeleteEntities(entities);
+
+                // Status < 3
+                entities = await _mapper.FetchAsync<SiloInstance>(
+                    Cql.New(
+                       $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.IAmAliveTime)} < ? AND Status < 3 ALLOW FILTERING",
+                       _clusterId,
+                       beforeDate)
+                   .WithOptions(x => x.SetConsistencyLevel(DefaultConsistencyLevel)));
+                await DeleteEntities(entities);
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug(ex, "CassandraMembershipTable.CleanupDefunctSiloEntries failed");
+                throw;
+            }
+        }
+
+        private async Task DeleteEntities(IEnumerable<SiloInstance> entities)
+        {
+            foreach (var entity in entities)
+            {
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogTrace("CassandraMembershipTable.DeleteEntities: deleting {ClusterId} / {Entityid}", _clusterId, entity.EntityId);
+
+                await _mapper.DeleteAsync<SiloInstance>(
+                    Cql.New(
+                           $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.EntityId)} = ?",
+                           _clusterId,
+                           entity.EntityId)
+                       .WithOptions(x => x.SetConsistencyLevel(DefaultConsistencyLevel)));
+            }
+        }
     }
 }

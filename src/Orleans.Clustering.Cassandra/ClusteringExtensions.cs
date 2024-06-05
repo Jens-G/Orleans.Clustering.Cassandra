@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using Orleans.Clustering.Cassandra.Membership;
 using Orleans.Clustering.Cassandra.Options;
@@ -13,19 +14,21 @@ namespace Orleans.Clustering.Cassandra
 {
     public static class ClusteringExtensions
     {
-        public static ISiloHostBuilder UseCassandraClustering(this ISiloHostBuilder builder, Func<IConfiguration, IConfiguration> configurationProvider)
+        public static ISiloBuilder UseCassandraClustering(
+            this ISiloBuilder builder, 
+            Func</*IConfiguration,*/ IConfiguration> configurationProvider)
         {
             return builder.ConfigureServices(
-                (context, services) => services.UseCassandraClustering(ob => ob.Bind(configurationProvider(context.Configuration))));
+                (context/*,services*/) => context.UseCassandraClustering(ob => ob.Bind(configurationProvider(/*context.Configuration*/))));
         }
 
-        public static ISiloHostBuilder UseCassandraClustering(this ISiloHostBuilder builder, Action<CassandraClusteringOptions> configureOptions)
+        public static ISiloBuilder UseCassandraClustering(this ISiloBuilder builder, Action<CassandraClusteringOptions> configureOptions)
         {
             return builder.ConfigureServices(services => services.UseCassandraClustering(ob => ob.Configure(configureOptions)));
         }
 
-        public static ISiloHostBuilder UseCassandraClustering(
-            this ISiloHostBuilder builder,
+        public static ISiloBuilder UseCassandraClustering(
+            this ISiloBuilder builder,
             Action<OptionsBuilder<CassandraClusteringOptions>> configureOptions)
         {
             return builder.ConfigureServices(services => services.UseCassandraClustering(configureOptions));
@@ -39,10 +42,12 @@ namespace Orleans.Clustering.Cassandra
             return services.AddSingleton<IMembershipTable, CassandraMembershipTable>();
         }
 
-        public static IClientBuilder UseCassandraGatewayListProvider(this IClientBuilder builder, Func<IConfiguration, IConfiguration> configurationProvider)
+        public static IClientBuilder UseCassandraGatewayListProvider(
+            this IClientBuilder builder, 
+            Func</*IConfiguration,*/ IConfiguration> configurationProvider)
         {
             return builder.ConfigureServices(
-                (context, services) => services.UseCassandraGatewayListProvider(ob => ob.Bind(configurationProvider(context.Configuration))));
+                (context/*, services*/) => context.UseCassandraGatewayListProvider(ob => ob.Bind(configurationProvider(/*context.Configuration*/))));
         }
 
         public static IClientBuilder UseCassandraGatewayListProvider(this IClientBuilder builder, Action<CassandraClusteringOptions> configureOptions)
