@@ -97,7 +97,7 @@ namespace Orleans.Clustering.Cassandra.Membership
             }
         }
 
-        private static Uri ConvertToGatewayUri(ISiloIntance gateway)
+        private static Uri ConvertToGatewayUri(ISiloInstance gateway)
         {
             // ReSharper disable once PossibleInvalidOperationException
             var proxyPort = gateway.ProxyPort ?? 30000;

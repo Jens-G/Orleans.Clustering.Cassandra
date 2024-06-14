@@ -9,45 +9,45 @@ namespace Orleans.Clustering.Cassandra.Membership.Models
     internal static class EntityExtensions
     {
         public static TableVersion AsTableVersion(this IClusterVersion clusterVersion)
-            => new TableVersion(clusterVersion.Version, string.Empty);
+            => new(clusterVersion.Version, string.Empty);
 
         public static ClusterVersion AsClusterVersion(this TableVersion tableVersion, string clusterId)
-            => new ClusterVersion
-                {
-                    ClusterId = clusterId,
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Version = tableVersion.Version
-                };
+            => new()
+            {
+                ClusterId = clusterId,
+                Timestamp = DateTimeOffset.UtcNow,
+                Version = tableVersion.Version
+            };
 
-        public static MembershipEntry AsMembershipEntry(this ISiloIntance siloIntance)
+        public static MembershipEntry AsMembershipEntry(this ISiloInstance siloInstance)
         {
             var entry = new MembershipEntry
                 {
-                    SiloName = siloIntance.SiloName,
-                    HostName = siloIntance.HostName,
-                    Status = (SiloStatus)siloIntance.Status,
-                    RoleName = siloIntance.RoleName,
-                    UpdateZone = siloIntance.UpdateZone,
-                    FaultZone = siloIntance.FaultZone,
-                    StartTime = siloIntance.StartTime.UtcDateTime,
-                    IAmAliveTime = siloIntance.IAmAliveTime.UtcDateTime,
-                    SiloAddress = SiloAddress.New(new IPEndPoint(IPAddress.Parse(siloIntance.Address), siloIntance.Port), siloIntance.Generation)
+                    SiloName = siloInstance.SiloName,
+                    HostName = siloInstance.HostName,
+                    Status = (SiloStatus)siloInstance.Status,
+                    RoleName = siloInstance.RoleName,
+                    UpdateZone = siloInstance.UpdateZone,
+                    FaultZone = siloInstance.FaultZone,
+                    StartTime = siloInstance.StartTime.UtcDateTime,
+                    IAmAliveTime = siloInstance.IAmAliveTime.UtcDateTime,
+                    SiloAddress = SiloAddress.New(new IPEndPoint(IPAddress.Parse(siloInstance.Address), siloInstance.Port), siloInstance.Generation)
                 };
 
-            if (siloIntance.ProxyPort.HasValue)
+            if (siloInstance.ProxyPort.HasValue)
             {
-                entry.ProxyPort = siloIntance.ProxyPort.Value;
+                entry.ProxyPort = siloInstance.ProxyPort.Value;
             }
 
             var suspectingSilos = new List<SiloAddress>();
             var suspectingTimes = new List<DateTime>();
 
-            foreach (var silo in siloIntance.SuspectingSilos)
+            foreach (var silo in siloInstance.SuspectingSilos)
             {
                 suspectingSilos.Add(SiloAddress.FromParsableString(silo));
             }
 
-            foreach (var time in siloIntance.SuspectingTimes)
+            foreach (var time in siloInstance.SuspectingTimes)
             {
                 suspectingTimes.Add(time.UtcDateTime);
             }
@@ -89,15 +89,8 @@ namespace Orleans.Clustering.Cassandra.Membership.Models
 
             if (entry.SuspectTimes != null)
             {
-                if (siloInstance.SuspectingSilos == null)
-                {
-                    siloInstance.SuspectingSilos = new List<string>();
-                }
-
-                if (siloInstance.SuspectingTimes == null)
-                {
-                    siloInstance.SuspectingTimes = new List<DateTimeOffset>();
-                }
+                siloInstance.SuspectingSilos ??= [];
+                siloInstance.SuspectingTimes ??= [];
 
                 foreach (var tuple in entry.SuspectTimes)
                 {

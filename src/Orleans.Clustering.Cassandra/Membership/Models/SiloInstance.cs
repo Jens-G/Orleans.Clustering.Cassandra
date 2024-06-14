@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Orleans.Clustering.Cassandra.Membership.Models
 {
-    internal sealed class SiloInstance : ISiloIntance
+    internal sealed class SiloInstance : ISiloInstance
     {
         public const string Type = nameof(SiloInstance);
 

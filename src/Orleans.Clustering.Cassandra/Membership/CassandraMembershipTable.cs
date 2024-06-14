@@ -17,6 +17,18 @@ using Orleans.Runtime;
 
 namespace Orleans.Clustering.Cassandra.Membership
 {
+    /*
+    enum SiloStatus
+        None            0   No known status.
+        Created         1   This silo was just created, but not started yet.
+        Joining         2   This silo has just started, but not ready yet. It is attempting to join the cluster.
+        Active          3   This silo is alive and functional.
+        ShuttingDown    4   This silo is shutting itself down.
+        Stopping        5   This silo is stopping itself down.
+        Dead            6   This silo is deactivated/considered to be dead.
+    */
+
+
     internal class CassandraMembershipTable : IMembershipTable
     {
         private const ConsistencyLevel DefaultConsistencyLevel = ConsistencyLevel.EachQuorum;
@@ -216,7 +228,7 @@ namespace Orleans.Clustering.Cassandra.Membership
                 await _mapper.UpdateAsync<SiloInstance>(
                     Cql.New(
                            $"SET {nameof(SiloInstance.IAmAliveTime)} = ? " +
-                           $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.EntityId)} =? ",
+                           $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.EntityId)} = ? ",
                            entry.IAmAliveTime,
                            _clusterId,
                            entityId)
@@ -229,7 +241,7 @@ namespace Orleans.Clustering.Cassandra.Membership
             }
         }
 
-        private static MembershipTableData CreateMembershipTableData(IEnumerable<ClusterMembership> data)
+        private MembershipTableData CreateMembershipTableData(IEnumerable<ClusterMembership> data)
         {
             TableVersion tableVersion = null;
             var members = new List<Tuple<MembershipEntry, string>>();
@@ -239,10 +251,15 @@ namespace Orleans.Clustering.Cassandra.Membership
                 {
                     tableVersion = item.AsTableVersion();
                 }
-                else
+                else if (!string.IsNullOrEmpty(item.Address))
                 {
                     var entry = item.AsMembershipEntry();
                     members.Add(Tuple.Create(entry, string.Empty));
+                }
+                else 
+                {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("IMembershipTable.CreateMembershipTableData skipped broken record {item}.", item.EntityId);
                 }
             }
 
@@ -258,28 +275,24 @@ namespace Orleans.Clustering.Cassandra.Membership
                 // Caveat: We have to provide the entire PK at DELETE, otherwise an error about missing PK parts is raised
                 // PS: no filtering allowed at DELETE either :-(
 
-                // Status > 3
                 var entities = await _mapper.FetchAsync<SiloInstance>(
                     Cql.New(
-                       $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.IAmAliveTime)} < ? AND Status > 3 ALLOW FILTERING",
+                       $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.IAmAliveTime)} < ? ALLOW FILTERING",
                        _clusterId,
                        beforeDate)
                    .WithOptions(x => x.SetConsistencyLevel(DefaultConsistencyLevel)));
+
+                // remove any active or non-node entries, keep outdated inactive nodes and broken data
+                entities = entities.Where( (row) => string.IsNullOrEmpty(row.Address)             // broken data
+                                                    || (row.Status != (int)SiloStatus.Active)     // outdated and not active
+                                                    || (!row.EntityId.Equals(ClusterVersion.Id))  // is real node entry
+                                                    );
                 await DeleteEntities(entities);
 
-                // Status < 3
-                entities = await _mapper.FetchAsync<SiloInstance>(
-                    Cql.New(
-                       $"WHERE {nameof(SiloInstance.ClusterId)} = ? AND {nameof(SiloInstance.IAmAliveTime)} < ? AND Status < 3 ALLOW FILTERING",
-                       _clusterId,
-                       beforeDate)
-                   .WithOptions(x => x.SetConsistencyLevel(DefaultConsistencyLevel)));
-                await DeleteEntities(entities);
             }
             catch (Exception ex)
             {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                    _logger.LogDebug(ex, "CassandraMembershipTable.CleanupDefunctSiloEntries failed");
+                _logger.LogWarning(ex, "CassandraMembershipTable.CleanupDefunctSiloEntries failed");
                 throw;
             }
         }

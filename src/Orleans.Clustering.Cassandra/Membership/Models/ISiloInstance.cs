@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Orleans.Clustering.Cassandra.Membership.Models
 {
-    internal interface ISiloIntance : IEntityBase
+    internal interface ISiloInstance : IEntityBase
     {
         string Address { get; set; }
         int Port { get; set; }

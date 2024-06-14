@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Orleans.Clustering.Cassandra.Membership.Models
 {
-    internal sealed class ClusterMembership : ISiloIntance, IClusterVersion
+    internal sealed class ClusterMembership : ISiloInstance, IClusterVersion
     {
         public string EntityId { get; set; }
         public string EntityType { get; set; }
